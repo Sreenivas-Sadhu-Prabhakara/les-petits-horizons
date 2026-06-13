@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Les Petits Horizons — Tuteur de français</title>
+<style>
+  :root { --bg:#0f1226; --card:#1b1f3a; --accent:#7c5cff; --accent2:#22d3ee; --text:#eef0ff; --muted:#9aa0c7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:18px 22px; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+  header h1 { margin:0; font-size:19px; }
+  header p { margin:4px 0 0; font-size:13px; opacity:.9; }
+  .wrap { max-width:760px; margin:0 auto; padding:18px; }
+  .row { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  select, input, button { font-size:15px; border-radius:10px; border:1px solid #2c3160; background:var(--card); color:var(--text); padding:11px 13px; }
+  input { flex:1; min-width:200px; }
+  button { background:var(--accent); border:none; cursor:pointer; font-weight:600; }
+  button:disabled { opacity:.5; cursor:default; }
+  #log { display:flex; flex-direction:column; gap:10px; min-height:240px; }
+  .msg { padding:11px 14px; border-radius:14px; max-width:85%; white-space:pre-wrap; line-height:1.45; }
+  .user { align-self:flex-end; background:#2a2f5c; }
+  .bot { align-self:flex-start; background:var(--card); border:1px solid #2c3160; }
+  .sources { font-size:12px; color:var(--muted); margin-top:6px; }
+  label { font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🇫🇷 Les Petits Horizons</h1>
+  <p>Tuteur de français · immersif · adapté à ton niveau (A1–C2)</p>
+</header>
+<div class="wrap">
+  <div class="row">
+    <label for="level">Niveau&nbsp;</label>
+    <select id="level">
+      <option value="a1">A1 — débutant</option>
+      <option value="a2">A2 — élémentaire</option>
+      <option value="b1">B1 — intermédiaire</option>
+      <option value="b2">B2 — intermédiaire avancé</option>
+      <option value="c1">C1 — avancé</option>
+      <option value="c2">C2 — maîtrise</option>
+    </select>
+  </div>
+  <div id="log">
+    <div class="msg bot">Bonjour&nbsp;! Je suis ton tuteur de français. Écris-moi un message pour commencer&nbsp;: dis-moi bonjour, pose une question, ou raconte ta journée. 😊</div>
+  </div>
+  <div class="row" style="margin-top:14px;">
+    <input id="msg" placeholder="Écris en français (ou en anglais)…" autocomplete="off" />
+    <button id="send">Envoyer</button>
+  </div>
+</div>
+<script>
+  // Same-origin endpoint (this page is served by the Go tutor itself).
+  const API = "";
+  let conversationId = "";
+  const log = document.getElementById("log");
+  const input = document.getElementById("msg");
+  const send = document.getElementById("send");
+  const level = document.getElementById("level");
+
+  function add(cls, text) {
+    const d = document.createElement("div");
+    d.className = "msg " + cls;
+    d.textContent = text;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+    return d;
+  }
+
+  async function ask() {
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = "";
+    send.disabled = true;
+    add("user", message);
+    const bot = add("bot", "");
+    try {
+      const res = await fetch(API + "/tutor/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, level: level.value, conversation_id: conversationId }),
+      });
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const frames = buf.split("\n\n");
+        buf = frames.pop();
+        for (const f of frames) {
+          let event = "", data = "";
+          for (const line of f.split("\n")) {
+            if (line.startsWith("event:")) event = line.slice(6).trim();
+            if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+          if (!data) continue;
+          const obj = JSON.parse(data);
+          if (event === "done") {
+            conversationId = obj.conversation_id || conversationId;
+            if (obj.sources && obj.sources.length) {
+              const s = document.createElement("div");
+              s.className = "sources";
+              s.textContent = "Matériel : " + obj.sources.join(" · ");
+              bot.appendChild(s);
+            }
+          } else if (obj.token) {
+            bot.firstChild ? null : null;
+            bot.insertBefore(document.createTextNode(obj.token), bot.querySelector(".sources"));
+          } else if (obj.error) {
+            bot.textContent = "⚠️ " + obj.error;
+          }
+        }
+      }
+    } catch (e) {
+      bot.textContent = "⚠️ Erreur de connexion : " + e.message;
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  }
+
+  send.addEventListener("click", ask);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  input.focus();
+</script>
+</body>
+</html>

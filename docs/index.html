@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Les Petits Horizons — French tutor, built in the open</title>
+<meta name="description" content="A self-hosted French tutor chatbot: how it was built, explained for grown-ups and for five-year-olds, plus a live chat." />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<section class="hero">
+  <div class="flag">🇫🇷✨</div>
+  <h1>Les Petits Horizons</h1>
+  <p>A self-hosted French tutor that speaks immersive French, graded to your level — and the story of how it was built.</p>
+  <div class="badges">
+    <span class="badge">Go + pgvector RAG</span>
+    <span class="badge">Qwen 32B via LiteLLM</span>
+    <span class="badge">BGE-M3 embeddings</span>
+    <span class="badge">runs at ≈ $0 / query</span>
+    <span class="badge">100% local on a Mac Studio</span>
+  </div>
+</section>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="built">🛠️ How it was built</button>
+  <button class="tab" data-tab="eli5">🧸 If I were 5</button>
+  <button class="tab" data-tab="chat">💬 Chat with the tutor</button>
+</nav>
+
+<!-- ===================== HOW IT WAS BUILT ===================== -->
+<section class="panel active" id="built">
+  <p class="lead">Les Petits Horizons reuses the architecture of an existing self-hosted RAG
+  assistant, re-pointed at a brand-new domain: teaching French. Same proven plumbing — a
+  completely different brain.</p>
+
+  <h2>The request</h2>
+  <div class="card">
+    Build a French tutor that (1) reuses the machine's existing model, (2) shares the same
+    vector database, and (3) is reachable on its own public URL — separate from the original
+    assistant it was cloned from. Then write up how it works, including a version a child
+    could follow, with a live chat embedded right here.
+  </div>
+
+  <h2>How a message becomes a French lesson</h2>
+  <div class="pipeline">
+    <div class="step"><b>1 · You write a message</b> — in French or English, at a chosen CEFR level (A1–C2). <span class="arrow">→</span></div>
+    <div class="step"><b>2 · Embed &amp; retrieve</b> — the message is turned into a 1024-dim vector by <b>BGE-M3</b> and matched against French lesson chunks in <b>pgvector</b> (HNSW cosine search). <span class="arrow">→</span></div>
+    <div class="step"><b>3 · Assemble a graded prompt</b> — the retrieved material plus a tutor persona tuned to your level (very simple French at A1, near-native at C2). <span class="arrow">→</span></div>
+    <div class="step"><b>4 · Generate</b> — <b>Qwen 32B</b>, served locally through the <b>LiteLLM</b> gateway, streams the answer back token-by-token. <span class="arrow">→</span></div>
+    <div class="step"><b>5 · Stream, log &amp; learn</b> — tokens stream to your screen over SSE; the turn (and any 👍/👎) is logged to Postgres to fuel future fine-tuning.</div>
+  </div>
+
+  <h2>The stack</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Backend</h3>
+      <table class="kv">
+        <tr><td>Language</td><td>Go (≈ 2,000 lines)</td></tr>
+        <tr><td>API</td><td><code>POST /tutor/chat</code> · SSE streaming · CORS-enabled</td></tr>
+        <tr><td>Retrieval</td><td>pgvector + HNSW, 1024-dim cosine</td></tr>
+        <tr><td>Embeddings</td><td>BGE-M3 (shared)</td></tr>
+        <tr><td>Generation</td><td>Qwen 32B via LiteLLM (shared)</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Infra</h3>
+      <table class="kv">
+        <tr><td>Host</td><td>Mac Studio M2 Max, fully local</td></tr>
+        <tr><td>Vector DB</td><td>shared pgvector server, isolated <code>french</code> database</td></tr>
+        <tr><td>Gateway</td><td>LiteLLM (retries + fallback)</td></tr>
+        <tr><td>Public URL</td><td>Cloudflare quick tunnel → port 8092</td></tr>
+        <tr><td>Cost</td><td>≈ $0 per query (no cloud API)</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h2>One brain, graded six ways</h2>
+  <div class="card">
+    There is a single tutor persona — “Petit Horizon” — but it is <b>graded by CEFR level</b>.
+    At <b>A1</b> it uses very short sentences and may slip a word of English in parentheses when
+    you're stuck. By <b>C2</b> it speaks rich, idiomatic French like a near-native. The lesson
+    material steers the content; the model supplies the language.
+  </div>
+
+  <h2>What's next</h2>
+  <div class="card">
+    Phase 2 swaps today's small synthetic seed corpus for real French learning materials, then
+    runs a <b>LoRA fine-tune</b> on that content so a short prompt reproduces the full tutor
+    behaviour — freeing the context window and sharpening the voice.
+  </div>
+</section>
+
+<!-- ===================== ELI5 ===================== -->
+<section class="panel eli5" id="eli5">
+  <h2>If I were 5, here's how it works 🧸</h2>
+
+  <div class="card"><span class="big-emoji">🤖</span> I made a <b>robot friend</b> that helps you learn French. You talk to it, and it talks back in French — slowly if you're just starting, faster and fancier when you get good.</div>
+
+  <div class="card"><span class="big-emoji">📚</span> The robot has a <b>little library</b> of French notes. When you ask something, it runs to the shelf and grabs the notes that look most like your question. That shelf is a magic one — it finds notes by <i>meaning</i>, not just matching words.</div>
+
+  <div class="card"><span class="big-emoji">🧠</span> Then a <b>very big brain</b> (that lives inside the computer, not on the internet) reads those notes and writes you a friendly answer in French. It even fixes your mistakes nicely, like a kind teacher.</div>
+
+  <div class="card"><span class="big-emoji">💨</span> The words come to your screen <b>one at a time</b>, like the robot is typing them just for you.</div>
+
+  <div class="card"><span class="big-emoji">🏠</span> The whole robot lives on <b>one computer at home</b> — no big company, no paying money each time. We borrowed a friendly tunnel so you can visit it from anywhere on the internet.</div>
+
+  <div class="card"><span class="big-emoji">🎚️</span> You can tell the robot <b>how grown-up your French is</b> (from “just starting” to “super good”), and it changes how hard it talks so it's never too easy or too scary.</div>
+
+  <div class="card"><span class="big-emoji">🌱</span> Right now the robot has only a <b>few notes</b>. Soon we'll give it a <b>big pile of real lessons</b> and teach it even better — like the robot going to school itself!</div>
+</section>
+
+<!-- ===================== CHAT ===================== -->
+<section class="panel" id="chat">
+  <h2>Chat with the tutor 💬</h2>
+  <p class="lead">This talks to the real tutor running on a Mac Studio. It only works while that
+  machine and its tunnel are up — if it can't connect, that's why.</p>
+
+  <div class="backend-row">
+    <label for="backend">Backend&nbsp;URL</label>
+    <input id="backend" placeholder="https://…trycloudflare.com" />
+    <button id="saveBackend">Save</button>
+  </div>
+
+  <div class="chat-controls">
+    <label for="level">Level</label>
+    <select id="level">
+      <option value="a1">A1 — beginner</option>
+      <option value="a2">A2 — elementary</option>
+      <option value="b1">B1 — intermediate</option>
+      <option value="b2">B2 — upper-intermediate</option>
+      <option value="c1">C1 — advanced</option>
+      <option value="c2">C2 — mastery</option>
+    </select>
+    <span class="status"><span class="dot" id="statusDot"></span><span id="statusText">checking…</span></span>
+  </div>
+
+  <div id="log">
+    <div class="msg bot">Bonjour&nbsp;! Je suis ton tuteur de français. Écris-moi un message pour commencer&nbsp;😊</div>
+  </div>
+
+  <div class="composer">
+    <input id="msg" placeholder="Écris en français (ou en anglais)…" autocomplete="off" />
+    <button class="primary" id="send">Envoyer</button>
+  </div>
+</section>
+
+<footer>
+  Les Petits Horizons · self-hosted French tutor · built with Go, pgvector, BGE-M3 &amp; Qwen via LiteLLM ·
+  <a href="https://github.com/Sreenivas-Sadhu-Prabhakara/les-petits-horizons">source on GitHub</a>
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

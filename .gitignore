@@ -1,0 +1,33 @@
+# secrets / local env
+.env
+*.secret
+
+# build output
+/bin/
+les-petits-horizons
+ask
+ingest
+server
+*.test
+
+# logs / runtime
+*.log
+/tmp/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# training artifacts (Phase 2) — large model files never go in git
+training/.venv/
+training/models/
+training/fused/
+training/quantized/
+training/adapters/
+*.gguf
+*.safetensors
+
+# os
+.DS_Store
